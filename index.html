@@ -68,34 +68,40 @@
     }
 
     async function sendAvatarFromProxy(username) {
-      const proxyURL = `https://telegram-avatar-api-production.up.railway.app/avatar/${username}`;
-    
-      try {
-        const response = await fetch(proxyURL);
-        const data = await response.json();
-    
-        if (!data.success || !data.url) throw new Error("Нет ссылки на аватар");
-    
-        const imageUrl = data.url;
-        const imageResponse = await fetch(imageUrl);
-        const blob = await imageResponse.blob();
-    
-        const reader = new FileReader();
-        reader.onloadend = function () {
-          const base64data = reader.result; // data:image/...;base64,...
-    
-          if (typeof unityInstance !== 'undefined') {
-            unityInstance.SendMessage('GameManager', 'OnAvatarBase64', base64data);
-            console.log('Изображение отправлено в Unity.');
-          } else {
-            console.warn('Unity инстанс не найден!');
-          }
-        };
-        reader.readAsDataURL(blob);
-      } catch (err) {
-        console.error("Ошибка загрузки или обработки аватара:", err);
-      }
+  if (!username) return;
+
+  // Правильный URL
+  const proxyURL = `https://telegram-avatar-api-production.up.railway.app/avatar?username=${encodeURIComponent(username)}`;
+
+  try {
+    const response = await fetch(proxyURL);
+    const data = await response.json();
+
+    if (!data.avatar) {
+      throw new Error("Нет ссылки на аватар");
     }
+
+    const imageUrl = data.avatar;
+    const imageResponse = await fetch(imageUrl);
+    const blob = await imageResponse.blob();
+
+    const reader = new FileReader();
+    reader.onloadend = function () {
+      const base64data = reader.result; 
+
+      if (typeof unityInstance !== 'undefined') {
+        unityInstance.SendMessage('GameManager', 'OnAvatarBase64', base64data);
+        console.log('Изображение отправлено в Unity.');
+      } else {
+        console.warn('Unity инстанс не найден!');
+      }
+    };
+    reader.readAsDataURL(blob);
+
+  } catch (err) {
+    console.error("Ошибка загрузки или обработки аватара:", err);
+  }
+}
 
     
 
