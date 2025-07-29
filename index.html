@@ -5,6 +5,55 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Unity WebGL Player | Box Catcher</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+  
+    const firebaseConfig = {
+      apiKey: "AIzaSyDE616vYd1GXNVw34KmG0ICCvxfLOSnS2g",
+      authDomain: "boxcatcher-519eb.firebaseapp.com",
+      projectId: "boxcatcher-519eb",
+      storageBucket: "boxcatcher-519eb.appspot.com",
+      messagingSenderId: "933279915257",
+      appId: "1:933279915257:web:d81f878272a545ab5a9628",
+      measurementId: "G-9CH0V0YXD5"
+    };
+  
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+  
+    window.GetRecordFromFirebase = async function (telegramId) {
+      const docRef = doc(db, "records", telegramId);
+      const docSnap = await getDoc(docRef);
+  
+      let record = 0;
+      if (docSnap.exists()) {
+        record = docSnap.data().score || 0;
+      }
+  
+      if (unityInstance)
+        unityInstance.SendMessage("GameManager", "OnFirebaseRecord", record.toString());
+    };
+  
+    window.SaveRecordToFirebase = async function (telegramId, newScoreStr) {
+      const newScore = parseInt(newScoreStr);
+      const docRef = doc(db, "records", telegramId);
+      const docSnap = await getDoc(docRef);
+  
+      let oldScore = 0;
+      if (docSnap.exists()) {
+        oldScore = docSnap.data().score || 0;
+      }
+  
+      if (newScore > oldScore) {
+        await setDoc(docRef, { score: newScore });
+        console.log(`Новый рекорд сохранён: ${newScore}`);
+      } else {
+        console.log(`Рекорд не побит: ${newScore} <= ${oldScore}`);
+      }
+    };
+  </script>
+  
 </head>
 <body style="text-align: center; padding: 0; border: 0; margin: 0;">
 
