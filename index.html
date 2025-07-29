@@ -71,7 +71,7 @@
   if (!username) return;
 
   // Правильный URL
-  const proxyURL = `https://telegram-avatar-api-production.up.railway.app/avatar?username=${encodeURIComponent(username)}`;
+  const proxyURL = `https://telegram-avatar-api-production.up.railway.app/avatar?username=${username}`;
 
   try {
     const response = await fetch(proxyURL);
