@@ -5,10 +5,12 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Unity WebGL Player | Box Catcher</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-  
+
     const firebaseConfig = {
       apiKey: "AIzaSyDE616vYd1GXNVw34KmG0ICCvxfLOSnS2g",
       authDomain: "boxcatcher-519eb.firebaseapp.com",
@@ -18,33 +20,33 @@
       appId: "1:933279915257:web:d81f878272a545ab5a9628",
       measurementId: "G-9CH0V0YXD5"
     };
-  
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-  
+
     window.GetRecordFromFirebase = async function (telegramId) {
       const docRef = doc(db, "records", telegramId);
       const docSnap = await getDoc(docRef);
-  
+
       let record = 0;
       if (docSnap.exists()) {
         record = docSnap.data().score || 0;
       }
-  
-      if (unityInstance)
+
+      if (window.unityInstance)
         unityInstance.SendMessage("GameManager", "OnFirebaseRecord", record.toString());
     };
-  
+
     window.SaveRecordToFirebase = async function (telegramId, newScoreStr) {
       const newScore = parseInt(newScoreStr);
       const docRef = doc(db, "records", telegramId);
       const docSnap = await getDoc(docRef);
-  
+
       let oldScore = 0;
       if (docSnap.exists()) {
         oldScore = docSnap.data().score || 0;
       }
-  
+
       if (newScore > oldScore) {
         await setDoc(docRef, { score: newScore });
         console.log(`Новый рекорд сохранён: ${newScore}`);
@@ -53,34 +55,65 @@
       }
     };
   </script>
-  
 </head>
-<body style="text-align: center; padding: 0; border: 0; margin: 0;">
 
-  <canvas id="unity-canvas" width="320" height="720" tabindex="-1" style="width: 320px; height: 720px; background: #231F20"></canvas>
+<body style="text-align: center; padding: 0; border: 0; margin: 0;">
+  <canvas id="unity-canvas" width="320" height="720"
+          style="width: 320px; height: 720px; background: #231F20"></canvas>
 
   <script src="Build/tg2.loader.js"></script>
 
   <script>
     let unityInstance = null;
 
+    // Конвертирует SVG в PNG и возвращает dataURL
+    async function convertSvgToPngDataUrl(svgUrl) {
+      try {
+        const res = await fetch(svgUrl);
+        const svgText = await res.text();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; // можешь увеличить при необходимости
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const v = await canvg.Canvg.from(ctx, svgText);
+        await v.render();
+        return canvas.toDataURL("image/png");
+      } catch (err) {
+        console.error("Ошибка при конвертации SVG:", err);
+        return null;
+      }
+    }
+
+    // Отправляет base64 PNG в Unity
+    async function handleAvatarForUnity(avatarUrl) {
+      if (!avatarUrl) return;
+
+      if (avatarUrl.endsWith('.svg')) {
+        const pngDataUrl = await convertSvgToPngDataUrl(avatarUrl);
+        if (pngDataUrl) {
+          unityInstance.SendMessage("GameManager", "OnAvatarBase64", pngDataUrl);
+        }
+      } else {
+        unityInstance.SendMessage("GameManager", "OnAvatarBase64", avatarUrl);
+      }
+    }
+
     window.addEventListener('load', () => {
-      // 1. Получаем данные Telegram
       let telegramPayload = null;
-      
+
       if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
         const user = tg.initDataUnsafe.user;
+
         telegramPayload = JSON.stringify({
           id: user.id,
           name: user.username || `${user.first_name} ${user.last_name || ''}`.trim(),
-          avatar: user.photo_url ? (user.photo_url.startsWith('http') ? user.photo_url : `https://telegram.org${user.photo_url}`) : ''
+          avatar: user.photo_url ? (user.photo_url.startsWith("http") ? user.photo_url : `https://t.me${user.photo_url}`) : ""
         });
       }
 
-      // 2. Создаём инстанс Unity
       createUnityInstance(document.querySelector("#unity-canvas"), {
         dataUrl: "Build/tg2.data",
         frameworkUrl: "Build/tg2.framework.js",
@@ -92,18 +125,19 @@
       }).then(instance => {
         unityInstance = instance;
 
-        // 3. Передаём данные из Telegram в Unity
         if (telegramPayload) {
+          const tgData = JSON.parse(telegramPayload);
           setTimeout(() => {
             unityInstance.SendMessage("GameManager", "OnTelegramUser", telegramPayload);
-          }, 500); // Небольшая задержка для гарантии инициализации Unity
+            handleAvatarForUnity(tgData.avatar);
+          }, 500);
         }
-      }).catch(error => {
-        console.error("Unity initialization failed:", error);
+      }).catch(err => {
+        console.error("Ошибка инициализации Unity:", err);
       });
     });
 
-    // 4. Поддержка мобильных устройств
+    // Мобильная адаптация
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       var meta = document.createElement('meta');
       meta.name = 'viewport';
@@ -114,7 +148,6 @@
       canvas.style.width = "100%";
       canvas.style.height = "100%";
       canvas.style.position = "fixed";
-
       document.body.style.textAlign = "left";
     }
   </script>
