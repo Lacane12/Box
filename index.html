@@ -46,7 +46,7 @@
         // 3. Передаём данные из Telegram в Unity
         if (telegramPayload) {
           setTimeout(() => {
-            unityInstance.SendMessage("DataController", "OnTelegramUser", telegramPayload);
+            unityInstance.SendMessage("GameManager", "OnTelegramUser", telegramPayload);
           }, 500); // Небольшая задержка для гарантии инициализации Unity
         }
       }).catch(error => {
