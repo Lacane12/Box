@@ -24,7 +24,7 @@
 
     window.GetRecordFromFirebase = async function (telegramId) {
       const snap = await getDoc(doc(db, "records", telegramId));
-      const record = snap.exists() ? (snap.data().score||0) : 0;
+      const record = snap.exists() ? (snap.data().score || 0) : 0;
       window.unityInstance?.SendMessage("GameManager", "OnFirebaseRecord", record.toString());
     };
 
@@ -32,7 +32,7 @@
       const newScore = +newScoreStr;
       const ref = doc(db, "records", telegramId);
       const snap = await getDoc(ref);
-      const old = snap.exists() ? (snap.data().score||0) : 0;
+      const old = snap.exists() ? (snap.data().score || 0) : 0;
       if (newScore > old) await setDoc(ref, { score: newScore });
     };
   </script>
@@ -62,78 +62,66 @@
           URL.revokeObjectURL(imgUrl);
           res(c.toDataURL("image/png"));
         };
-        img.onerror = e => {
-          URL.revokeObjectURL(imgUrl);
-          rej(e);
-        };
+        img.onerror = e => { URL.revokeObjectURL(imgUrl); rej(e); };
         img.src = imgUrl;
       });
     }
 
-    async function sendAvatar(url) {
-      if (!url) return;
-      if (url.endsWith(".svg")) {
-        try {
-          const pngBase64 = await svgToPngDataUrl(url);
-          unityInstance.SendMessage("GameManager", "OnAvatarBase64", pngBase64);
-        } catch (e) {
-          console.error("SVG→PNG failed", e);
+    async function sendAvatarFromProxy(username) {
+      if (!username) return;
+      try {
+        const proxyURL = `https://your-railway-app.up.railway.app/avatar/${username}`;
+        const response = await fetch(proxyURL);
+        const data = await response.json();
+
+        if (!data.success || !data.url) throw new Error("Нет ссылки на аватар");
+
+        const avatarUrl = data.url;
+
+        if (avatarUrl.endsWith(".svg")) {
+          try {
+            const pngBase64 = await svgToPngDataUrl(avatarUrl);
+            unityInstance.SendMessage("GameManager", "OnAvatarBase64", pngBase64);
+          } catch (e) {
+            console.error("Ошибка конвертации SVG → PNG:", e);
+          }
+        } else {
+          unityInstance.SendMessage("GameManager", "OnAvatarBase64", avatarUrl);
         }
-      } else {
-        unityInstance.SendMessage("GameManager", "OnAvatarBase64", url);
+      } catch (err) {
+        console.error("Ошибка загрузки аватара через прокси:", err);
       }
     }
 
     window.addEventListener("load", () => {
       let payload = null;
+
       if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const u = window.Telegram.WebApp.initDataUnsafe.user;
         window.Telegram.WebApp.expand();
+        const username = u.username || "";
         payload = JSON.stringify({
           id: u.id,
-          name: u.username || `${u.first_name} ${u.last_name || ""}`.trim(),
-          avatar: u.photo_url?.startsWith("http")
-            ? u.photo_url
-            : u.photo_url ? `https://t.me${u.photo_url}` : ""
+          name: username || `${u.first_name} ${u.last_name || ""}`.trim(),
+          username: username
         });
-      }
 
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/tg2.data",
-        frameworkUrl: "Build/tg2.framework.js",
-        codeUrl: "Build/tg2.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "Box Catcher",
-        productVersion: "1.0.2",
-      }).then(async inst => {
-        unityInstance = inst;
-        window.unityInstance = inst;
-
-        if (payload) {
+        createUnityInstance(document.querySelector("#unity-canvas"), {
+          dataUrl: "Build/tg2.data",
+          frameworkUrl: "Build/tg2.framework.js",
+          codeUrl: "Build/tg2.wasm",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "DefaultCompany",
+          productName: "Box Catcher",
+          productVersion: "1.0.2",
+        }).then(inst => {
+          unityInstance = inst;
+          window.unityInstance = inst;
           inst.SendMessage("GameManager", "OnTelegramUser", payload);
-
-          const parsed = JSON.parse(payload);
-          const username = parsed.name;
-          const fallbackAvatar = parsed.avatar;
-
-          try {
-            const res = await fetch(`https://telegram-avatar-api-production.up.railway.app/avatar?username=${encodeURIComponent(username)}`);
-            const data = await res.json();
-            if (data?.avatar) {
-              await sendAvatar(data.avatar);
-            } else {
-              console.warn("No avatar from API, using fallback.");
-              await sendAvatar(fallbackAvatar);
-            }
-          } catch (err) {
-            console.warn("Avatar fetch failed, using fallback.", err);
-            await sendAvatar(fallbackAvatar);
-          }
-
-          window.GetRecordFromFirebase(parsed.id.toString());
-        }
-      }).catch(console.error);
+          if (username) sendAvatarFromProxy(username);
+          window.GetRecordFromFirebase(u.id.toString());
+        }).catch(console.error);
+      }
     });
 
     // Mobile viewport hack
@@ -143,7 +131,7 @@
       m.content = "width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes";
       document.head.appendChild(m);
       const c = document.querySelector("#unity-canvas");
-      Object.assign(c.style, { width: "100%", height: "100%", position: "fixed" });
+      Object.assign(c.style, {width: "100%", height: "100%", position: "fixed"});
       document.body.style.textAlign = "left";
     }
   </script>
