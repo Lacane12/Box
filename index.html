@@ -2,10 +2,8 @@
 <html lang="en-us">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Unity WebGL Player | Box Catcher</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
@@ -27,12 +25,8 @@
     window.GetRecordFromFirebase = async function (telegramId) {
       const docRef = doc(db, "records", telegramId);
       const docSnap = await getDoc(docRef);
-
       let record = 0;
-      if (docSnap.exists()) {
-        record = docSnap.data().score || 0;
-      }
-
+      if (docSnap.exists()) record = docSnap.data().score || 0;
       if (window.unityInstance)
         unityInstance.SendMessage("GameManager", "OnFirebaseRecord", record.toString());
     };
@@ -41,11 +35,8 @@
       const newScore = parseInt(newScoreStr);
       const docRef = doc(db, "records", telegramId);
       const docSnap = await getDoc(docRef);
-
       let oldScore = 0;
-      if (docSnap.exists()) {
-        oldScore = docSnap.data().score || 0;
-      }
+      if (docSnap.exists()) oldScore = docSnap.data().score || 0;
 
       if (newScore > oldScore) {
         await setDoc(docRef, { score: newScore });
@@ -66,26 +57,39 @@
   <script>
     let unityInstance = null;
 
-    // Конвертирует SVG в PNG и возвращает dataURL
     async function convertSvgToPngDataUrl(svgUrl) {
       try {
         const res = await fetch(svgUrl);
         const svgText = await res.text();
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; // можешь увеличить при необходимости
-        canvas.height = 256;
-        const ctx = canvas.getContext('2d');
-        const v = await canvg.Canvg.from(ctx, svgText);
-        await v.render();
-        return canvas.toDataURL("image/png");
+        const blob = new Blob([svgText], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.onerror = err => {
+            URL.revokeObjectURL(url);
+            reject("Ошибка загрузки изображения");
+          };
+          img.src = url;
+        });
       } catch (err) {
-        console.error("Ошибка при конвертации SVG:", err);
+        console.error("Ошибка при рендере SVG:", err);
         return null;
       }
     }
 
-    // Отправляет base64 PNG в Unity
     async function handleAvatarForUnity(avatarUrl) {
       if (!avatarUrl) return;
 
