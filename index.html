@@ -6,7 +6,8 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc }
+      from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDE616vYd1GXNVw34KmG0ICCvxfLOSnS2g",
@@ -19,12 +20,16 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    const db = getFirestore(app);
 
     window.GetRecordFromFirebase = async function (telegramId) {
       const snap = await getDoc(doc(db, "records", telegramId));
       const record = snap.exists() ? (snap.data().score || 0) : 0;
-      window.unityInstance?.SendMessage("GameManager", "OnFirebaseRecord", record.toString());
+      window.unityInstance?.SendMessage(
+        "GameManager",
+        "OnFirebaseRecord",
+        record.toString()
+      );
     };
 
     window.SaveRecordToFirebase = async function (telegramId, newScoreStr) {
@@ -44,61 +49,67 @@
     let unityInstance = null;
     window.unityInstance = null;
 
-    // Fetch avatar URL via your API and send it to Unity
+    // запрос аватара по username и передача его в Unity
     async function fetchAndSendAvatar(username) {
-      if (!username) return;
-      const apiURL = `https://telegram-avatar-api-production.up.railway.app/avatar?username=${username}`;
+      if (!username) {
+        unityInstance.SendMessage("GameManager", "OnDebug", "Ошибка: username пустой");
+        return;
+      }
+      const apiURL = `https://telegram-avatar-api-production.up.railway.app/avatar?username=${encodeURIComponent(username)}`;
       try {
         const r = await fetch(apiURL);
-        const { avatar } = await r.json();
-        if (!avatar) throw new Error("No avatar URL");
-        // send URL directly; Unity will load it
-        unityInstance.SendMessage("GameManager","OnAvatarBase64", avatar);
-        console.log("Avatar URL sent to Unity:", avatar);
-      } catch(e) {
-        console.error("fetchAndSendAvatar error:", e);
+        const json = await r.json();
+        const avatarUrl = json.avatar;
+        if (!avatarUrl) throw new Error("Прокси вернул пустой avatar");
+
+        unityInstance.SendMessage("GameManager", "OnAvatarBase64", avatarUrl);
+        unityInstance.SendMessage("GameManager", "OnDebug", "Avatar URL: " + avatarUrl);
+      } catch (e) {
+        unityInstance.SendMessage("GameManager", "OnDebug", "fetchAvatar error: " + e.message);
+        console.error(e);
       }
     }
 
-    window.addEventListener("load", ()=>{
+    window.addEventListener("load", () => {
       const tg = window.Telegram?.WebApp;
       if (!tg?.initDataUnsafe?.user) return;
       tg.expand();
       const u = tg.initDataUnsafe.user;
-      const username = u.username; // must exist
+      const username = u.username || "";
 
-      // Send user id+name to Unity
+      // отправляем только id и имя
       const payload = JSON.stringify({
         id: u.id,
-        name: u.username || `${u.first_name} ${u.last_name||""}`.trim()
+        name: u.username || `${u.first_name} ${u.last_name || ""}`.trim()
       });
 
       createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/tg2.data",
-        frameworkUrl: "Build/tg2.framework.js",
-        codeUrl: "Build/tg2.wasm",
+        dataUrl:          "Build/tg2.data",
+        frameworkUrl:     "Build/tg2.framework.js",
+        codeUrl:          "Build/tg2.wasm",
         streamingAssetsUrl:"StreamingAssets",
-        companyName:"DefaultCompany",
-        productName:"Box Catcher",
-        productVersion:"1.0.2"
-      }).then(inst=>{
+        companyName:      "DefaultCompany",
+        productName:      "Box Catcher",
+        productVersion:   "1.0.2"
+      }).then(inst => {
         unityInstance = inst;
         window.unityInstance = inst;
-        inst.SendMessage("GameManager","OnTelegramUser",payload);
-        if (username) fetchAndSendAvatar(username);
+
+        inst.SendMessage("GameManager", "OnTelegramUser", payload);
+        fetchAndSendAvatar(username);
         window.GetRecordFromFirebase(u.id.toString());
-      }).catch(console.error);
+      }).catch(e => console.error(e));
     });
 
-    // Mobile viewport hack
+    // для мобильных
     if (/Android|iPhone/i.test(navigator.userAgent)) {
       const m = document.createElement("meta");
       m.name = "viewport";
       m.content = "width=device-width,height=device-height,initial-scale=1.0,user-scalable=no,shrink-to-fit=yes";
       document.head.appendChild(m);
       const c = document.querySelector("#unity-canvas");
-      Object.assign(c.style,{width:"100%",height:"100%",position:"fixed"});
-      document.body.style.textAlign="left";
+      Object.assign(c.style, { width:"100%", height:"100%", position:"fixed"});
+      document.body.style.textAlign = "left";
     }
   </script>
 </body>
