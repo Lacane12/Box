@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>Unity WebGL Player | Box Catcher</title>
-  <script async src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body style="text-align: center; padding: 0; border: 0; margin: 0;">
 
@@ -14,45 +14,46 @@
 
   <script>
     let unityInstance = null;
-    let telegramPayload = null;
 
-    // 1. Получаем данные Telegram
     window.addEventListener('load', () => {
-      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+      // 1. Получаем данные Telegram
+      let telegramPayload = null;
+      
+      if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const tg = window.Telegram.WebApp;
         tg.expand();
-
+        
         const user = tg.initDataUnsafe.user;
-        if (user) {
-          telegramPayload = JSON.stringify({
-            id: user.id,
-            name: user.username || `${user.first_name} ${user.last_name || ''}`.trim(),
-            avatar: user.photo_url || ''
-          });
+        telegramPayload = JSON.stringify({
+          id: user.id,
+          name: user.username || `${user.first_name} ${user.last_name || ''}`.trim(),
+          avatar: user.photo_url ? (user.photo_url.startsWith('http') ? user.photo_url : `https://telegram.org${user.photo_url}`) : ''
+        });
+      }
+
+      // 2. Создаём инстанс Unity
+      createUnityInstance(document.querySelector("#unity-canvas"), {
+        dataUrl: "Build/tg2.data",
+        frameworkUrl: "Build/tg2.framework.js",
+        codeUrl: "Build/tg2.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "Box Catcher",
+        productVersion: "1.0.2",
+      }).then(instance => {
+        unityInstance = instance;
+
+        // 3. Передаём данные из Telegram в Unity
+        if (telegramPayload) {
+          setTimeout(() => {
+            unityInstance.SendMessage("DataController", "OnTelegramUser", telegramPayload);
+          }, 500); // Небольшая задержка для гарантии инициализации Unity
         }
-      }
+      }).catch(error => {
+        console.error("Unity initialization failed:", error);
+      });
     });
 
-    // 2. Создаём инстанс Unity
-    createUnityInstance(document.querySelector("#unity-canvas"), {
-      dataUrl: "Build/tg2.data",
-      frameworkUrl: "Build/tg2.framework.js",
-      codeUrl: "Build/tg2.wasm",
-      streamingAssetsUrl: "StreamingAssets",
-      companyName: "DefaultCompany",
-      productName: "Box Catcher",
-      productVersion: "1.0.2",
-    }).then(instance => {
-      unityInstance = instance;
-
-      // 3. Передаём данные из Telegram в Unity
-      if (telegramPayload) {
-        unityInstance.SendMessage("DataController", "OnTelegramUser", telegramPayload);
-      }
-    });
-  </script>
-
-  <script>
     // 4. Поддержка мобильных устройств
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
       var meta = document.createElement('meta');
@@ -68,6 +69,5 @@
       document.body.style.textAlign = "left";
     }
   </script>
-
 </body>
 </html>
