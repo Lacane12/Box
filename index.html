@@ -1,57 +1,73 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | Box Catcher</title>
-    <script async src="https://telegram.org/js/telegram-web-app.js"></script>
-  </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <script>
-      window.addEventListener('load', () => {
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Unity WebGL Player | Box Catcher</title>
+  <script async src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body style="text-align: center; padding: 0; border: 0; margin: 0;">
+
+  <canvas id="unity-canvas" width="320" height="720" tabindex="-1" style="width: 320px; height: 720px; background: #231F20"></canvas>
+
+  <script src="Build/tg2.loader.js"></script>
+
+  <script>
+    let unityInstance = null;
+    let telegramPayload = null;
+
+    // 1. Получаем данные Telegram
+    window.addEventListener('load', () => {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
         const tg = window.Telegram.WebApp;
-        tg.expand();                     // развернуть WebApp на весь экран (по желанию)
-        // Данные пользователя доступны сразу:
+        tg.expand();
+
         const user = tg.initDataUnsafe.user;
-        // Отправим их в Unity
-        const payload = JSON.stringify({
-          id:      user.id,
-          name:    user.username || `${user.first_name} ${user.last_name || ''}`.trim(),
-          avatar:  user.photo_url || ''
-        });
-        // unityInstance придёт из шаблона WebGL
-        window.unityInstance.SendMessage('DataController', 'OnTelegramUser', payload);
-      });
-    </script>
-    <canvas id="unity-canvas" width=320 height=720 tabindex="-1" style="width: 320px; height: 720px; background: #231F20"></canvas>
-    <script src="Build/tg2.loader.js"></script>
-    <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
-
-        document.body.style.textAlign = "left";
+        if (user) {
+          telegramPayload = JSON.stringify({
+            id: user.id,
+            name: user.username || `${user.first_name} ${user.last_name || ''}`.trim(),
+            avatar: user.photo_url || ''
+          });
+        }
       }
+    });
 
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/tg2.data",
-        frameworkUrl: "Build/tg2.framework.js",
-        codeUrl: "Build/tg2.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "Box Catcher",
-        productVersion: "1.0.2",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-      });
-    </script>
-  </body>
+    // 2. Создаём инстанс Unity
+    createUnityInstance(document.querySelector("#unity-canvas"), {
+      dataUrl: "Build/tg2.data",
+      frameworkUrl: "Build/tg2.framework.js",
+      codeUrl: "Build/tg2.wasm",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DefaultCompany",
+      productName: "Box Catcher",
+      productVersion: "1.0.2",
+    }).then(instance => {
+      unityInstance = instance;
+
+      // 3. Передаём данные из Telegram в Unity
+      if (telegramPayload) {
+        unityInstance.SendMessage("DataController", "OnTelegramUser", telegramPayload);
+      }
+    });
+  </script>
+
+  <script>
+    // 4. Поддержка мобильных устройств
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      var meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+      document.getElementsByTagName('head')[0].appendChild(meta);
+
+      var canvas = document.querySelector("#unity-canvas");
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.position = "fixed";
+
+      document.body.style.textAlign = "left";
+    }
+  </script>
+
+</body>
 </html>
