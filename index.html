@@ -70,7 +70,7 @@
     async function sendAvatarFromProxy(username) {
       if (!username) return;
       try {
-        const proxyURL = `https://your-railway-app.up.railway.app/avatar/${username}`;
+        const proxyURL = `https://telegram-avatar-api-production.up.railway.app/avatar/${username}`;
         const response = await fetch(proxyURL);
         const data = await response.json();
 
